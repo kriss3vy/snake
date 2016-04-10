@@ -6,97 +6,44 @@ org  100h
     jmp start
       
 ; data
-    melc dw dim dup(0)
-    dim equ 30
-    lung dw ?
-    efectiv dw ?  
-    incr equ 3
-    food dw ?
+    melc    dw  dim     dup(0)
+    dim     equ 30
+    lung    dw  ?
+    efectiv dw  ?  
+    incr    equ 3
+    food    dw  ?
+    st      equ 4bh
+    dr      equ 4dh
+    sus     equ 48h
+    jos     equ 50h
+    dir     db  dr
+
+; in bp vom salva lungimea totala a sarpelui
+; in si avem lungimea afisata    
     
-    
+   
 start:       
     ;initializari variabile
     mov bp, 7 ; lungimea initiala
     mov si, 7; dimensiunea efectiva a sarpelui 
     
     
+    ;initializare ecran
     mov al, 0
     mov ah, 03h
-    int 10h   
+    int 10h  
     
-; initializare sarpe
-    mov ah, 12
-    mov al, 40
-    mov di, 0
-    ;mov bh
-    ;call depl
-    mov melc[di], ax ; stabilire coordonate pentru cap 
+    call chenar
     
-x3:
-    dec al
-    inc di
-    push ax
-    mov ax, 2
-    mul di
-    mov bx, ax
-    pop ax
-    mov melc[bx], ax; stabilire coordonate pentru restul corpului
-    cmp di, bp
-    jne x3
-   
-; desenare sarpe initial
-   
-    mov cx, 1
+    call init_melc
     
-    ;desenare cap
-    mov dx, melc[0]
-    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
-    int 10h
+    call desenare_sarpe  
     
-    mov al, 'O'
-    mov bl, 0bh; stabilire culoare sarpe
-    mov ah, 09h; afisare
-    int 10h      
+    mov ss, dx ; salvare in ss a indicelui corespunzator ultimului element al sarpelui     
     
-    ; desenare corp
-    mov di, 1
-    mov al, '*'        
-x4:
-    push ax  
-    push bx
-    mov ax, 2
-    mul di
-    mov bx, ax
-    mov dx, melc[bx]
-    pop bx
-    pop ax
-    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
-    int 10h
+    call genereaza ;genereaza mancarea si salveaza in food pozitia acesteia
     
-    mov ah, 09h; afisare
-    int 10h 
-    inc di   
-    ;inc di
-    cmp di, bp
-    jne x4          
-    
-    mov ss, dx ; salvare dx in ss
-    ;call genereaza ;genereaza mancarea si salveaza in ds coloana unde se gaseste mancarea
-   
-    ; afisare mancare
-    mov cx, 1
-    mov bl, 0eh
-    
-    mov dx, ss
-    mov dl, al
-    mov food, dx; salvare pozitie mancare
-    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
-    int 10h
-    
-    mov al, '#'
-    mov ah, 09h; afisare
-    int 10h
-          
+    call afis_food
    
     
     
@@ -104,6 +51,23 @@ x4:
 ; deplasare
 
 x5:
+
+    ; citim tasta apasata (daca exista)
+
+    mov     ah, 01h ; citire stare tastatura
+    int     16h
+    jz      no_tasta
+
+    mov     ah, 00h ; daca a fost apasata o tasta, vedem care este aceea (in AL)
+    int     16h
+
+    cmp     al, 1bh    ; esc - key?
+    je      end;
+
+    mov     dir, ah ; copiem codul in dir
+    
+    no_tasta:
+    
     cmp bp, si 
     jg no_sterge
     
@@ -141,28 +105,73 @@ x5:
         dec bx
         mov dx, melc[bx]
         mov melc[di],dx
-        ;mov cx, bx
         cmp bx, 0
         jne x6
+        
+        ; calcul pozitie noua a capului
+        cmp dir, st
+            je move_st
+        cmp dir, dr
+            je move_dr
+        cmp dir, sus
+            je move_sus
+        cmp dir, jos
+            je move_jos  
+            
+        move_st:
+            dec dl
+            cmp dl, 1
+            jb st1
+            cmp dl, 79
+            jb cont
+            st1:
+            mov dl, 78            
+            jmp cont
+            
+        move_dr:
+            inc dl
+            cmp dl, 1
+            jb dr1
+            cmp dl, 79
+            jb cont
+            dr1:
+            mov dl, 1
+            jmp cont
+
+        move_jos:
+            inc dh
+            cmp dh, 1
+            jb jos1
+            cmp dh, 23
+            jbe cont
+            jos1:
+            mov dh, 1
+            jmp cont
+
+        move_sus:
+            dec dh
+            cmp dh, 1
+            jb dr11
+            cmp dh, 24
+            jb cont
+            dr11:
+            mov dh, 23
+            
+
+        cont:
+            mov melc[bx],dx    
+            
+             
    
-        inc dl
-        mov cx,ds
-        cmp cl, dl
-        jne no_length_change
-        
-            ;schimbare lungime sarpe
-            mov cx, lung
-            mov ax, incr
-            add ax, cx
-            mov lung, ax
         
         
-        no_length_change:
+        
+        ;no_length_change:
         cmp dl, 79
-        jne cont
+        jne cont_1
     mov dl,0
     
-cont:
+cont_1:
     mov melc[bx],dx; salvam pozitia capului
    
     ;desenam * la cap+1 shi O la cap
@@ -191,22 +200,30 @@ cont:
     jne cont1
         add bp, incr ; crestere lungime sarpe
         
-        ; generare mancare noua
-        add dl, 6
-        cmp dl, 79
-        jl no_food_change
-        mov dl, 5
-        
-        no_food_change:
-        ; afisare mancare
-        mov cx, 1
-        mov bl, 0eh
-        
-        mov food, dx
-        mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+        mov al, 07h
+        mov ah, 09h
         int 10h
+        
+        ; generare mancare noua
+        ;add dl, 6
+        ;cmp dl, 79
+        ;jl no_food_change
+        ;mov dl, 5
+        
+        call genereaza
+        
+        call afis_food
+        
+        ;no_food_change:
+        ; afisare mancare
+        ;mov cx, 1
+        ;mov bl, 0eh
+        
+        ;mov food, dx
+        ;mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+        ;int 10h
     
-        mov al, '#'
+        mov al, 07h
         mov ah, 09h; afisare
         int 10h
     
@@ -221,12 +238,16 @@ cont:
    
     
     
-   jmp x5
+   jmp x5   
+   
+   end:
+   
 
 
 
 ret
 
+;generarea in ds urmatoarei pozitii a mancarii
 genereaza proc near
     
     mov ah, 2ch ; citeste ceasul
@@ -245,8 +266,212 @@ genereaza proc near
     
     m1:    
     mov dl, al
-    mov dh, 0
-    mov ds, dx 
+    m2:
+    cmp dh,23
+    jb m3
+    sub dh,23
+    jmp m2
+    m3:
+    mov food, dx
+    
+    ret 
 
 genereaza endp
+
+; initializare pozitie melc
+init_melc proc near
+    
+    ; initializare sarpe
+    mov ah, 12
+    mov al, 40
+    mov di, 0
+    ;mov bh
+    ;call depl
+    mov melc[di], ax ; stabilire coordonate pentru cap 
+    
+x3:
+    dec al ; pentru restul inelelor, pozitia pe axa Ox e cu unu mai mica
+    inc di ; crestem indicele inelului
+    push ax ; salvam continutul din AX
+    mov ax, 2 ; calculam pozitia inelului in vector
+    mul di
+    mov bx, ax
+    pop ax ; refacem AX
+    mov melc[bx], ax; stabilire coordonate pentru restul corpului
+    cmp di, bp ; daca am calculat coordonatele pentru ultimul inel, ne oprim
+    jne x3 ; altfel reluam pentru restul inelelor
+    
+    ret
+init_melc endp    
+     
+     
+desenare_sarpe proc near
+    
+    ; desenare sarpe initial
+    ; in procedura se intra cu numarul de elemente salvat in BP
+    ; la iesire in DX se gaseste pozitia cozii
+   
+    mov cx, 1 ; o singura litera de afisat pe ecran
+    
+    ;desenare cap
+    mov dx, melc[0] ; preluam din melc coordonatele capului
+    mov ah, 02h; pozitionare cursor pe linia si coloana din DX
+    int 10h
+    
+    mov al, 'O' ; litera corespunzatoare capului
+    mov bl, 0bh; stabilire culoare sarpe
+    mov ah, 09h; afisare
+    int 10h      
+    
+    ; desenare corp
+    mov di, 1 ; in DI retinem indicele inelului
+    mov al, '*' ; litera ce se va afisa pentru inel        
+x4:
+    push ax ; salvam continutul din AX  
+    push bx ; si pe cel din BX
+    mov ax, 2 ; inmultim pe DI cu 2 si retinem in AX rezultatul
+    mul di
+    mov bx, ax ; transferam in BX valoarea calculata, folosita pentru pozitionarea in vectorul de coordonate
+    mov dx, melc[bx] ; preluam pozitia curenta
+    pop bx ; refacem BX
+    pop ax ; refacem AX
+    mov ah, 02h; pozitionare cursor pe linia si coloana date de DX
+    int 10h
+    
+    mov ah, 09h ; afisare litera
+    int 10h     
+    
+    inc di ; crestere indice   
+    
+    cmp di, bp
+    jne x4
+    
+    
+    
+    ret
+desenare_sarpe endp    
+
+afis_food proc near
+    
+    ; afisare mancare
+    
+    mov dx, food
+    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+    int 10h
+    
+    mov al, '#'
+    mov ah, 09h; afisare
+    mov bl, 0eh
+    mov cx, 1
+    int 10h
+          
+    ret
+afis_food endp           
+
+chenar proc near
+    
+    mov bl, 0dh; stabilire culoare chenar
+    
+    
+    ; desenare cap de chenar    
+    mov dh, 0; lin = 0 
+    mov cx, 1; un singur caracter
+    mov al,'+'; stabilire caracter ce se va afisa la pozitia cursorului
+    
+    mov dl, 0; col = 0  
+    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+    int 10h
+    
+    mov ah, 09h; afisare
+    int 10h   
+    
+    mov dl, 79; col = 79  
+    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+    int 10h
+
+    mov ah, 09h; afisare
+    int 10h   
+    
+    mov dl, 1; col = 79  
+    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+    int 10h
+
+    mov al,'-'; stabilire caracter ce se va afisa la pozitia cursorului
+    mov ah, 09h; afisare
+    mov cx, 78; 78 caractere
+    int 10h
+    
+    
+    ; desenare parte inferioara chenar    
+    mov dh, 24; lin = 0
+    mov cx, 1; un singur caracter
+    mov al,'+'; stabilire caracter ce se va afisa la pozitia cursorului
+
+    mov dl, 0; col = 0  
+    mov ah, 02h; pozitionare cursor pe linia din DH si coloana din DL
+    int 10h
+    
+    mov ah, 09h; afisare
+    int 10h   
+    
+    mov dl, 79; col = 79  
+    mov ah, 02h; pozitionare cursor pe linia din DH si coloana din DL
+    int 10h
+    
+    mov ah, 09h; afisare
+    int 10h   
+    
+    mov dl, 1; col = 1  
+    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+    int 10h
+    
+    mov al,'-'; stabilire caracter ce se va afisa la pozitia cursorului
+    mov ah, 09h; afisare
+    mov cx, 78; 78 caractere
+    int 10h
+    
+ 
+  
+;desenare margini
+    mov al,'|'; stabilire caracter ce se va afisa la pozitia cursorului
+    mov cx, 1
+
+
+    mov dl, 0; col = 0  
+    mov dh, 1
+    
+x1:           
+    
+    ; pentru primul element al liniei
+    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+    int 10h
+    
+    mov ah, 09h; afisare
+    int 10h   
+
+    inc dh
+    cmp dh, 24
+    jne x1   
+    
+
+    mov dl, 79; col = 79  
+    mov dh, 1
+    
+x2:           
+    
+    ; pentru primul element al liniei
+    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+    int 10h
+    
+    mov ah, 09h; afisare
+    int 10h   
+
+    inc dh
+    cmp dh, 24
+    jne x2   
+    
+    
+    
+    ret
+chenar endp
 
