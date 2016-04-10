@@ -1,4 +1,5 @@
-
+  
+.model tiny
 
 org  100h        
       
@@ -10,6 +11,7 @@ org  100h
     lung dw ?
     efectiv dw ?  
     incr equ 3
+    food dw ?
     
     
 start:       
@@ -78,15 +80,16 @@ x4:
     cmp di, bp
     jne x4          
     
-    mov es, dx ; salvare dx in es
-    call genereaza ;genereaza mancarea si salveaza in ds coloana unde se gaseste mancarea
+    mov ss, dx ; salvare dx in ss
+    ;call genereaza ;genereaza mancarea si salveaza in ds coloana unde se gaseste mancarea
    
     ; afisare mancare
     mov cx, 1
     mov bl, 0eh
     
-    mov dx, es
+    mov dx, ss
     mov dl, al
+    mov food, dx; salvare pozitie mancare
     mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
     int 10h
     
@@ -101,7 +104,7 @@ x4:
 ; deplasare
 
 x5:
-    cmp si, bp 
+    cmp bp, si 
     jg no_sterge
     
     ; stergere coada
@@ -111,7 +114,7 @@ x5:
     mov bx, 2
     mul bx; inmultim ax cu 2 pentru a obtine octetul  
     mov bx, ax; punem rezultatul in bx      
-    mov ss,ax ;salvare rezultat in es
+    mov ss,ax ;salvare rezultat in ss
     mov dx, melc[bx]; obtinem din memorie localizarea cozii
     pop bx; refacem bx
     
@@ -119,7 +122,8 @@ x5:
     int 10h
     
     mov ah, 09h; afisare
-    mov al, ' ' 
+    mov al, ' '
+    mov bl, 00h 
     mov cx, 1
     int 10h
     
@@ -130,7 +134,7 @@ x5:
     
    
     ; mutare sarpe
-    mov bx, ss
+    mov bx, ss; in SS avem indicele cozii
     x6:
         mov di, bx
         dec bx
@@ -159,7 +163,7 @@ x5:
     mov dl,0
     
 cont:
-    mov melc[bx],dx
+    mov melc[bx],dx; salvam pozitia capului
    
     ;desenam * la cap+1 shi O la cap
    
@@ -182,8 +186,38 @@ cont:
     mov ah, 09h; afisare
     int 10h      
     
-   
-   
+    mov ax, food
+    cmp ax, dx
+    jne cont1
+        add bp, incr ; crestere lungime sarpe
+        
+        ; generare mancare noua
+        add dl, 6
+        cmp dl, 79
+        jl no_food_change
+        mov dl, 5
+        
+        no_food_change:
+        ; afisare mancare
+        mov cx, 1
+        mov bl, 0eh
+        
+        mov food, dx
+        mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+        int 10h
+    
+        mov al, '#'
+        mov ah, 09h; afisare
+        int 10h
+    
+        
+    cont1:
+    mov bx, bp
+    dec bx
+    mov ax, 2
+    mul bx 
+    mov ss, ax
+    
    
     
     
