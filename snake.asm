@@ -1,9 +1,17 @@
-#fasm#
+
 
 org  100h        
+      
+    jmp start
+      
+; data
+    dim equ 200
+    melc dw dim dup(0)
+    snake dw dim dup(0)
+    lung dw 5
 
-    snake dw 100 dup(0)
-
+    
+start:
     mov al, 0
     mov ah, 03h
     int 10h   
@@ -103,16 +111,48 @@ x2:
     
     mov ah, 09h; afisare
     int 10h   
-
+    
     inc dh
     cmp dh, 24
-    jne x2   
+    jne x2    
     
-      
+    ;beep
+    mov al, 7
+    int 10h
 
     
+; initializare sarpe
+    mov ah, 12
+    mov al, 40
+    mov di, 0
+    ;call depl
+    mov cx, melc[di] ; stabilire coordonate pentru cap 
+    
+x3:
+    dec al
+    inc di
+    mov melc[di], ax; stabilire coordonate pentru cap
+    cmp di, 5
+    jne x3
+   
+; desenare sarpe initial
+    mov bl, 0ch; stabilire culoare sarpe
+
+    mov dx, melc[0]
+    mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
+    int 10h
+    
+    mov al, 'O'
+    mov ah, 09h; afisare
+    mov cx, 1
+    int 10h   
+
 
 ret
 
+depl proc near
+    mov cx, melc[0]
 
+
+depl endp
 
