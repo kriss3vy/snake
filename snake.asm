@@ -16,13 +16,29 @@ org  100h
     dr      equ 4dh
     sus     equ 48h
     jos     equ 50h
-    dir     db  dr
-
+    dir     db  dr  
+  
+    message db " *********0  Bine ai venit, introdu initiala jucatorului: $"
+ 
 ; in bp vom salva lungimea totala a sarpelui
 ; in si avem lungimea afisata    
     
    
-start:       
+start:  
+   ;afisare mesaj de inceput pentru utilizator
+   
+    mov ax, seg message
+    mov ds, ax
+    mov dx, offset message
+    mov ah, 9h
+    int 21h 
+       
+      
+        
+    mov ah, 1h
+    int 21h
+  
+         
     ;initializari variabile
     mov bp, 7 ; lungimea initiala
     mov si, 7; dimensiunea efectiva a sarpelui 
@@ -58,7 +74,7 @@ x5:
     int     16h
     jz      no_tasta
 
-    mov     ah, 00h ; daca a fost apasata o tasta, vedem care este aceea (in AL)
+    mov     ah, 00h ; daca a fost apasata o tasta, vedem care este aceea (in al)
     int     16h
 
     cmp     al, 1bh    ; esc - key?
@@ -121,41 +137,41 @@ x5:
         move_st:
             dec dl
             cmp dl, 1
-            jb st1
-            cmp dl, 79
-            jb cont
-            st1:
-            mov dl, 78            
+            jb end
+            ;cmp dl, 79
+            ;jb cont
+            ;st1:
+            ;mov dl, 78            
             jmp cont
             
         move_dr:
             inc dl
-            cmp dl, 1
-            jb dr1
-            cmp dl, 79
-            jb cont
-            dr1:
-            mov dl, 1
+            cmp dl, 78
+            ja end
+            ;cmp dl, 79
+            ;jb cont
+            ;dr1:
+            ;mov dl, 1
             jmp cont
 
         move_jos:
             inc dh
-            cmp dh, 1
-            jb jos1
             cmp dh, 23
-            jbe cont
-            jos1:
-            mov dh, 1
+            ja end
+            ;cmp dh, 23
+            ;jbe cont
+            ;jos1:
+            ;mov dh, 1
             jmp cont
 
         move_sus:
             dec dh
             cmp dh, 1
-            jb dr11
-            cmp dh, 24
-            jb cont
-            dr11:
-            mov dh, 23
+            jb end
+            ;cmp dh, 24
+            ;jb cont
+            ;dr11:
+            ;mov dh, 23
             
 
         cont:
@@ -223,10 +239,7 @@ cont_1:
         ;mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
         ;int 10h
     
-        mov al, 07h
-        mov ah, 09h; afisare
-        int 10h
-    
+        
         
     cont1:
     mov bx, bp
@@ -241,7 +254,16 @@ cont_1:
    jmp x5   
    
    end:
-   
+       mov al, 07h
+        mov ah, 09h; afisare
+        int 10h
+    mov al, 07h
+        mov ah, 09h; afisare
+        int 10h
+    mov al, 07h
+        mov ah, 09h; afisare
+        int 10h
+    
 
 
 
@@ -283,7 +305,7 @@ init_melc proc near
     
     ; initializare sarpe
     mov ah, 12
-    mov al, 40
+    mov al, 10
     mov di, 0
     ;mov bh
     ;call depl
