@@ -17,15 +17,14 @@ org  100h
     sus     equ 48h
     jos     equ 50h
     dir     db  dr  
-  
     message db " *********0  Bine ai venit, introdu initiala jucatorului: $"
- 
+
 ; in bp vom salva lungimea totala a sarpelui
 ; in si avem lungimea afisata    
     
    
-start:  
-   ;afisare mesaj de inceput pentru utilizator
+start:
+;afisare mesaj de inceput pentru utilizator
    
     mov ax, seg message
     mov ds, ax
@@ -37,8 +36,7 @@ start:
         
     mov ah, 1h
     int 21h
-  
-         
+     
     ;initializari variabile
     mov bp, 7 ; lungimea initiala
     mov si, 7; dimensiunea efectiva a sarpelui 
@@ -61,8 +59,7 @@ start:
     
     call afis_food
    
-    
-    
+
     
 ; deplasare
 
@@ -74,13 +71,14 @@ x5:
     int     16h
     jz      no_tasta
 
-    mov     ah, 00h ; daca a fost apasata o tasta, vedem care este aceea (in al)
+    mov     ah, 00h ; daca a fost apasata o tasta, vedem care este aceea (in AL)
     int     16h
 
     cmp     al, 1bh    ; esc - key?
     je      end;
 
-    mov     dir, ah ; copiem codul in dir
+    ;mov     dir, ah ; copiem codul in dir
+    call update_dir
     
     no_tasta:
     
@@ -133,55 +131,37 @@ x5:
             je move_sus
         cmp dir, jos
             je move_jos  
-            
+         
+    ;miscare sarpe stanga		 
         move_st:
             dec dl
             cmp dl, 1
-            jb end
-            ;cmp dl, 79
-            ;jb cont
-            ;st1:
-            ;mov dl, 78            
+            jb end           
             jmp cont
-            
+    ;miscare sarpe dreapta	       
         move_dr:
             inc dl
             cmp dl, 78
             ja end
-            ;cmp dl, 79
-            ;jb cont
-            ;dr1:
-            ;mov dl, 1
             jmp cont
-
+	;miscare sarpe in jos	
         move_jos:
             inc dh
             cmp dh, 23
             ja end
-            ;cmp dh, 23
-            ;jbe cont
-            ;jos1:
-            ;mov dh, 1
             jmp cont
-
+	;miscare sarpe in sus	
         move_sus:
             dec dh
             cmp dh, 1
             jb end
-            ;cmp dh, 24
-            ;jb cont
-            ;dr11:
-            ;mov dh, 23
+         
             
 
         cont:
             mov melc[bx],dx    
             
-             
-   
-        
-        
-        
+            
         ;no_length_change:
         cmp dl, 79
         jne cont_1
@@ -190,7 +170,7 @@ x5:
 cont_1:
     mov melc[bx],dx; salvam pozitia capului
    
-    ;desenam * la cap+1 shi O la cap
+    ;desenam * la cap+1 si O la cap
    
     mov cx, 1
     mov bl, 0bh
@@ -209,7 +189,13 @@ cont_1:
     
     mov al, 'O' 
     mov ah, 09h; afisare
-    int 10h      
+    int 10h 
+    
+    push dx ; in dx avem pozitia capului. o salvam deoarece in check self eat se modifica
+    call check_self_eat ; pune in AX 0 daca se mananca  
+    pop dx ; refacem dx astfel incat sa se regaseasca acolo capul
+    cmp ax, 0
+    je end
     
     mov ax, food
     cmp ax, dx
@@ -218,29 +204,16 @@ cont_1:
         
         mov al, 07h
         mov ah, 09h
+        mov cx, 1
         int 10h
         
-        ; generare mancare noua
-        ;add dl, 6
-        ;cmp dl, 79
-        ;jl no_food_change
-        ;mov dl, 5
-        
-        call genereaza
-        
-        call afis_food
-        
-        ;no_food_change:
-        ; afisare mancare
-        ;mov cx, 1
-        ;mov bl, 0eh
-        
-        ;mov food, dx
-        ;mov ah, 02h; pozitionare cursor pe linia si coloana de mai sus
-        ;int 10h
     
-        
-        
+    ; apelam procedura de generare a mancarii   
+        call genereaza
+    ; apelam procedura de afisare a mancarii   
+        call afis_food
+   
+   
     cont1:
     mov bx, bp
     dec bx
@@ -249,25 +222,89 @@ cont_1:
     mov ss, ax
     
    
-    
-    
    jmp x5   
    
    end:
        mov al, 07h
-        mov ah, 09h; afisare
-        int 10h
-    mov al, 07h
-        mov ah, 09h; afisare
-        int 10h
-    mov al, 07h
-        mov ah, 09h; afisare
-        int 10h
+       mov ah, 09h; afisare
+       mov cx, 3
+       int 10h
+ 
+
+
+ret      
+         
+
+;procedura de verificare a modificarii directiei
+;in ah avem codul citit
+update_dir proc near
+    cmp dir, sus
+    je update_sus
+    cmp dir, jos
+    je update_jos
+    cmp dir, st
+    je update_st
+    cmp dir, dr
+    je update_dr
+                
+    update_sus:
+    cmp ah, jos
+    je no_update_dir
+    jmp update_d               
     
+    update_jos:
+    cmp ah, sus
+    je no_update_dir
+    jmp update_d               
+    
+    update_st:
+    cmp ah, dr
+    je no_update_dir
+    jmp update_d               
+    
+    update_dr:
+    cmp ah, st
+    je no_update_dir
+    jmp update_d               
+    
+    
+    update_d:
+    
+    mov dir, ah
+                          
+    no_update_dir:
+                           
+    ret
+update_dir endp   
+         
 
-
-
-ret
+; verificare daca sarpele isi mananca corpul
+; in dx avem pozitia capului
+check_self_eat proc near
+    push di
+    mov di, 1 
+    sc1:
+    mov ax, 2
+    mul di 
+    mov bx, ax
+    mov cx, melc[bx]
+    cmp cx, melc[0]
+    je eat:        
+    inc di
+    cmp di, si
+    jbe sc1
+    mov ax, 1
+    jmp check_end    
+           
+    eat:
+    mov ax, 0 
+    
+    check_end:
+    pop di
+    ret
+    
+check_self_eat endp
+       
 
 ;generarea in ds urmatoarei pozitii a mancarii
 genereaza proc near
@@ -286,9 +323,11 @@ genereaza proc near
         mov al, cl
         sub al, bl
     
-    m1:    
+    m1:  
+	inc al
     mov dl, al
     m2:
+	inc dh
     cmp dh,23
     jb m3
     sub dh,23
@@ -367,7 +406,6 @@ x4:
     
     cmp di, bp
     jne x4
-    
     
     
     ret
@@ -452,7 +490,6 @@ chenar proc near
     mov cx, 78; 78 caractere
     int 10h
     
- 
   
 ;desenare margini
     mov al,'|'; stabilire caracter ce se va afisa la pozitia cursorului
